@@ -7,5 +7,5 @@ Asignments
 - [x] Word Vectors
 - [x] Word2Vec
 - [x] Neural Dependency Parsing
-- [x] NMT
-- [ ] (In progress)
+- [x] NMT with RNN and Attention
+- [ ] NMT with CNN (In progress)
