@@ -1,8 +1,9 @@
 # CS224n-2019
 
-Completed assignments for [CS224n](http://web.stanford.edu/class/cs224n/): Natural Language Processing with Deep Learning.
+Completed assignments for [CS224n](http://web.stanford.edu/class/cs224n/): Natural Language Processing with Deep Learning 
+(Winter 2019 edition)
 
-Asignments
+Assignments:
 
 - [x] Exploring Word Vectors
 - [x] Word2Vec
