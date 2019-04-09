@@ -1,6 +1,9 @@
-Just run 
+Just run in this directory
 
-`sh get_datasets.sh`
-
-`python run.py`
-
+```bash
+sh get_datasets.sh
+export PYTHONPATH="../"
+```
+```python
+python run.py
+```
