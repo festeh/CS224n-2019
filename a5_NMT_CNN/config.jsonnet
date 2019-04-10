@@ -9,6 +9,8 @@
     n_filters: 50,
     hidden_size: 256,
     max_word_length: 21,
-    batch_size: 32,
     dropout_rate: 0.3,
+    batch_size: 4,
+    max_grad_norm: 5.0,
+    lr: 0.001
 }
