@@ -19,6 +19,9 @@ class NMTDataReader(DatasetReader):
             SpacyWordSplitter("en_core_web_sm"), start_tokens=["BOS"], end_tokens=["EOS"]
         )
 
+        # TODO: truncate words to 21 characters
+        #
+        # TODO: pass lowercase argument
         self.source_token_indexers = {
             "token_characters": TokenCharactersIndexer(
                 "char_src", min_padding_length=5

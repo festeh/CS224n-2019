@@ -9,7 +9,8 @@ class HighwayNetwork(Module):
         self.input_size = config.pop("input_size")
         self.dropout_rate = config.pop("dropout_rate")
 
-        self.proj_hidden = Linear(self.input_size, self.input_size)
+        # TODO: tweak biases
+        self.proj_hidden = Linear(self.input_size, self.input_size, bias=False)
         self.proj_gate = Linear(self.input_size, self.input_size)
         self.dropout = Dropout(self.dropout_rate)
 
