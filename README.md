@@ -8,4 +8,4 @@ Assignments for [CS224n](http://web.stanford.edu/class/cs224n/): Natural Languag
 - [x] Word2Vec
 - [x] Neural Dependency Parsing
 - [x] NMT with RNN and Attention
-- [ ] NMT with CNN (In progress)
+- [ ] Previous NMT with Subword Information (In progress)
