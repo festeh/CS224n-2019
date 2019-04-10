@@ -16,7 +16,9 @@ class NMTDataReader(DatasetReader):
         # TODO: change to es_core_news_sm when you'll finish debugging!!
         self.source_tokenizer = WordTokenizer(SpacyWordSplitter("en_core_web_sm"))
         self.target_tokenizer = WordTokenizer(
-            SpacyWordSplitter("en_core_web_sm"), start_tokens=["BOS"], end_tokens=["EOS"]
+            SpacyWordSplitter("en_core_web_sm"),
+            start_tokens=["BOS"],
+            end_tokens=["EOS"],
         )
 
         # TODO: truncate words to 21 characters
@@ -30,13 +32,14 @@ class NMTDataReader(DatasetReader):
         }
         self.target_token_indexers = {
             "token_characters": TokenCharactersIndexer(
-                "char_trg",
-                min_padding_length=5,
+                "char_trg", min_padding_length=5
             ),
             "token_characters_output": TokenCharactersIndexer(
                 "char_trg",
                 min_padding_length=5,
-                character_tokenizer=CharacterTokenizer(start_tokens=["SOT"], end_tokens=["EOT"]),  # lul
+                character_tokenizer=CharacterTokenizer(
+                    start_tokens=["BOT"], end_tokens=["EOT"]  # lul
+                ),
             ),
             "tokens": SingleIdTokenIndexer("token_trg"),
         }

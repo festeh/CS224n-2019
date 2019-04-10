@@ -1,6 +1,7 @@
 from allennlp.common import Params
+from torch import sigmoid
 from torch.nn import Module, Linear, Dropout
-from torch.nn.functional import relu, sigmoid
+from torch.nn.functional import relu
 
 
 class HighwayNetwork(Module):

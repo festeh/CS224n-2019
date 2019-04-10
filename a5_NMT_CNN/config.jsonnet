@@ -1,4 +1,5 @@
 {
+    device: "cpu",
     dataset_reader: "nmt-dataset",
     convert_to_lowercase: false,
     train_data_path: ["en_es_data/sample.es", "en_es_data/sample.en"],
