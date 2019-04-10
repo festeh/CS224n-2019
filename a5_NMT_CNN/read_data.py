@@ -4,25 +4,37 @@ from typing import Iterable, List, Iterable, List
 from allennlp.data import DatasetReader, Instance, Token
 from allennlp.data.fields import TextField
 from allennlp.data.token_indexers import TokenCharactersIndexer, SingleIdTokenIndexer
-from allennlp.data.tokenizers import WordTokenizer
+from allennlp.data.tokenizers import WordTokenizer, CharacterTokenizer
 from allennlp.data.tokenizers.word_splitter import WordSplitter, SpacyWordSplitter
 
 
-@DatasetReader.register('nmt-dataset')
+@DatasetReader.register("nmt-dataset")
 class NMTDataReader(DatasetReader):
     def __init__(self, convert_to_lowercase=True):
         super().__init__(lazy=False)
         self.convert_to_lowercase = convert_to_lowercase
         # TODO: change to es_core_news_sm when you'll finish debugging!!
         self.source_tokenizer = WordTokenizer(SpacyWordSplitter("en_core_web_sm"))
-        self.target_tokenizer = WordTokenizer(SpacyWordSplitter("en_core_web_sm"))
+        self.target_tokenizer = WordTokenizer(
+            SpacyWordSplitter("en_core_web_sm"), start_tokens=["BOS"], end_tokens=["EOS"]
+        )
 
         self.source_token_indexers = {
-            "token_characters": TokenCharactersIndexer("char_src"),
+            "token_characters": TokenCharactersIndexer(
+                "char_src", min_padding_length=5
+            ),
             "tokens": SingleIdTokenIndexer("token_src"),
         }
         self.target_token_indexers = {
-            "token_characters": TokenCharactersIndexer("char_trg"),
+            "token_characters": TokenCharactersIndexer(
+                "char_trg",
+                min_padding_length=5,
+            ),
+            "token_characters_output": TokenCharactersIndexer(
+                "char_trg",
+                min_padding_length=5,
+                character_tokenizer=CharacterTokenizer(start_tokens=["SOT"], end_tokens=["EOT"]),  # lul
+            ),
             "tokens": SingleIdTokenIndexer("token_trg"),
         }
 
