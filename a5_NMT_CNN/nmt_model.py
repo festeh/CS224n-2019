@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import torch.nn.utils
 from allennlp.common import Params
 from allennlp.data import Vocabulary
+from allennlp.nn.util import sort_batch_by_length
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 from a4_NMT_RNN.model_embeddings import ModelEmbeddings
@@ -52,6 +53,7 @@ class NMTModel(nn.Module):
             hidden_size=self.hidden_size,
             bidirectional=True,
             bias=True,
+            batch_first=True
         )
         self.decoder = nn.LSTMCell(
             input_size=self.source_embedder.char_emb_size + self.hidden_size,
@@ -88,9 +90,7 @@ class NMTModel(nn.Module):
         """
         # encode input data
         print()
-        source_batch = data['source_sentence']['token_characters']
-        input_embedded = self.source_embedder(source_batch)
-        enc_hiddens, dec_init_state = self.encode(input_embedded)
+        enc_hiddens, dec_init_state = self.encode(data['source_sentence']['token_characters'])
         # enc_masks = self.generate_sent_masks(enc_hiddens, source_lengths)
         # combined_outputs = self.decode(
         #     enc_hiddens, enc_masks, dec_init_state, target_padded
@@ -108,29 +108,19 @@ class NMTModel(nn.Module):
         # scores = target_gold_words_log_prob.sum(dim=0)
         # return scores
 
-    def encode(
-        self, source_padded: torch.Tensor, source_lengths: List[int]
-    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """ Apply the encoder to source sentences to obtain encoder hidden states.
-            Additionally, take the final states of the encoder and project them to obtain initial states for decoder.
+    def encode(self, source_batch) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        input_embedded = self.source_embedder(source_batch)
 
-        @param source_padded (Tensor): Tensor of padded source sentences with shape (src_len, b), where
-                                        b = batch_size, src_len = maximum source sentence length. Note that 
-                                       these have already been sorted in order of longest to shortest sentence.
-        @param source_lengths (List[int]): List of actual lengths for each of the source sentences in the batch
-        @returns enc_hiddens (Tensor): Tensor of hidden units with shape (b, src_len, h*2), where
-                                        b = batch size, src_len = maximum source sentence length, h = hidden size.
-        @returns dec_init_state (tuple(Tensor, Tensor)): Tuple of tensors representing the decoder's initial
-                                                hidden state and cell.
-        """
+        lengths = (source_batch.sum(dim=2) != 0).sum(dim=1)
 
-        X = self.model_embeddings.source(source_padded)
+        input_embedded_sorted, new_lengths, rest_idxs, _ = sort_batch_by_length(input_embedded, lengths)
+
         enc_hiddens, (last_hidden, last_cell) = self.encoder(
-            pack_padded_sequence(X, source_lengths)
+            pack_padded_sequence(input_embedded_sorted, new_lengths, batch_first=True)
         )
         enc_hiddens, _ = pad_packed_sequence(
-            enc_hiddens, padding_value=self.vocab.src["<pad>"]
-        )
+            enc_hiddens, padding_value=0, batch_first=True)
+
         init_decoder_hidden = self.h_projection(
             torch.cat([last_hidden[0], last_hidden[1]], dim=1)
         )
@@ -138,7 +128,7 @@ class NMTModel(nn.Module):
             torch.cat([last_cell[0], last_cell[1]], dim=1)
         )
         dec_init_state = (init_decoder_hidden, init_decoder_cell)
-        return enc_hiddens.permute(1, 0, 2), dec_init_state
+        return enc_hiddens[rest_idxs], dec_init_state
 
     def decode(
         self,
