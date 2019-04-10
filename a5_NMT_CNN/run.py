@@ -7,12 +7,25 @@ from allennlp.data import Vocabulary, DataIterator
 from allennlp.data.iterators import BasicIterator
 from ignite.contrib.handlers import ProgressBar
 from ignite.engine import create_supervised_trainer, Engine, Events
+from ignite.metrics import RunningAverage
 from ignite.utils import convert_tensor, apply_to_type
 from torch.optim import Adam
 
 from a5_NMT_CNN.nmt_model import NMTModel
 from a5_NMT_CNN.read_data import NMTDataReader
 
+
+class DataIteratorWrapper:
+    def __init__(self, data_iter: BasicIterator, instances, shuffle):
+        self.data_iter = data_iter
+        self.instances = instances
+        self.shuffle = shuffle
+
+    def __len__(self):
+        return self.data_iter.get_num_batches(self.instances)
+
+    def __iter__(self):
+        return self.data_iter(self.instances, shuffle=self.shuffle, num_epochs=1)
 
 def get_data_loader(config):
     data_reader = NMTDataReader(convert_to_lowercase=config.pop("convert_to_lowercase"))
@@ -31,7 +44,7 @@ def get_data_loader(config):
 
     data_iter = BasicIterator(batch_size=config.pop("batch_size"), cache_instances=True)
     data_iter.index_with(vocab)
-    return vocab, data_iter(instances, shuffle=False)
+    return vocab, DataIteratorWrapper(data_iter, instances, shuffle=False)
 
 
 def create_nmt_trainer(model, optimizer, max_grad_norm=None, device="cpu", ):
@@ -65,9 +78,8 @@ if __name__ == '__main__':
     optimizer = Adam(nmt_model.parameters(), lr=config.pop("lr"))
     trainer = create_nmt_trainer(nmt_model, optimizer, max_grad_norm=config.pop("max_grad_norm"))
 
-    pbar = ProgressBar(persist=True)
-    # pbar.attach(trainer, ['loss'])
-
-    trainer.add_event_handler(Events.ITERATION_COMPLETED, log_training_loss)
-
+    RunningAverage(output_transform=lambda x: x).attach(trainer, 'loss')
+    pbar = ProgressBar(persist=False, bar_format=None)
+    pbar.attach(trainer, ['loss'])
+    # trainer.add_event_handler(Events.ITERATION_COMPLETED, log_training_loss)
     trainer.run(train_data_iter, max_epochs=100)
