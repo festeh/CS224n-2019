@@ -80,7 +80,7 @@ class NMTModel(nn.Module):
         )
         self.dropout = nn.Dropout(p=self.dropout_rate)
 
-    def forward(self, data) -> torch.Tensor:
+    def forward(self, data, reduce=True) -> torch.Tensor:
         """ Take a mini-batch of source and target sentences, compute the log-likelihood of
         target sentences under the language models learned by the NMT system.
 
@@ -92,7 +92,6 @@ class NMTModel(nn.Module):
                                     each example in the input batch. Here b = batch size.
         """
         # encode input data
-        print()
         enc_hiddens, dec_init_state, enc_masks = self.encode(
             data["source_sentence"]["token_characters"]
         )
@@ -100,14 +99,20 @@ class NMTModel(nn.Module):
             enc_hiddens, enc_masks, dec_init_state, data["target_sentence"]
         )
 
-        P = F.log_softmax(self.target_vocab_projection(combined_outputs), dim=-1)
+        token_logits = self.target_vocab_projection(combined_outputs)
+
+        P = F.log_softmax(token_logits, dim=-1)
 
         target_word_idxs = data["target_sentence"]["tokens"][:, 1:]
         target_masks = (target_word_idxs != 0).float()
 
-        target_gold_words_log_prob = torch.gather(
-            P, index=target_word_idxs.unsqueeze(-1), dim=-1
-        ).squeeze(-1) * target_masks
+        target_gold_words_log_prob = (
+            torch.gather(P, index=target_word_idxs.unsqueeze(-1), dim=-1).squeeze(-1)
+            * target_masks
+        )
+
+        if not reduce:
+            return token_logits, target_gold_words_log_prob
 
         return target_gold_words_log_prob.sum(dim=1)
 
