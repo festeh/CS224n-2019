@@ -60,16 +60,15 @@ class BLEU(Metric):
 
     def update(self, output):
         logits, _ = output
-        hyps = output
         batch_size = logits.size(0)
         hyps_idxs = logits.argmax(-1).cpu().numpy()
         hyps = [[self.vocab.get_token_from_index(idx, "token_trg") for idx in idxs]
                 for idxs in hyps_idxs]
         hyps = [truncate_hyp(hyp) for hyp in hyps]
         refs = self.refs[:batch_size]
+        self.refs = self.refs[batch_size:]
         print("\n".join([" ".join(hyp) for hyp in hyps][:3]),
               "\n".join([" ".join(ref) for ref in refs][:3]))
-        self.refs = self.refs[batch_size:]
         self.bleu += corpus_bleu([[ref] for ref in refs], hyps)
 
     def compute(self):

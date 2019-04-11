@@ -1,3 +1,4 @@
+from functools import partial
 from logging import basicConfig, INFO
 from pathlib import Path
 
@@ -5,12 +6,14 @@ import torch
 from allennlp.common import Params
 from allennlp.data import Vocabulary
 from allennlp.data.iterators import BasicIterator
-from ignite.contrib.handlers import ProgressBar, TensorboardLogger
+from ignite.contrib.handlers import ProgressBar, TensorboardLogger, LRScheduler
 from ignite.contrib.handlers.tensorboard_logger import OutputHandler
 from ignite.engine import Engine, Events
+from ignite.handlers import ModelCheckpoint
 from ignite.metrics import RunningAverage
 from ignite.utils import apply_to_type
 from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from a5_NMT_CNN.metrics import Perplexity, Loss, BLEU
 from a5_NMT_CNN.nmt_model import NMTModel
@@ -105,8 +108,14 @@ def create_nmt_evaluator(model: NMTModel, metrics={}, device=None, non_blocking=
     return engine
 
 
+def reduce_on_plateau(trainer, scheduler):
+    scheduler.step(trainer.state.metrics['loss'])
+    trainer.state.metrics['lr'] = scheduler.optimizer.param_groups[0]['lr']
+
+
 def run_evaluation(trainer):
-    print(f"Epoch[{trainer.state.epoch}] Loss: {trainer.state.output:.2f}")
+    epoch = trainer.state.epoch
+    print(f"Epoch[{epoch}] Loss: {trainer.state.output:.2f}")
 
 
 if __name__ == "__main__":
@@ -133,6 +142,20 @@ if __name__ == "__main__":
         device=nmt_model.device,
     )
 
+    def get_best(engine):
+        return engine.state.metrics['bleu']
+
+    saver = ModelCheckpoint(config.pop("model_path"), "nmt", n_saved=1, create_dir=True, score_function=get_best)
+    evaluator.add_event_handler(Events.EPOCH_COMPLETED, saver, {'mymodel': nmt_model})
+
+    scheduler = ReduceLROnPlateau(
+        optimizer, factor=config.pop("lr_decay_factor"), patience=config.pop("patience")
+    )
+
+    evaluator.add_event_handler(
+        Events.EPOCH_COMPLETED, partial(reduce_on_plateau, scheduler=scheduler)
+    )
+
     RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
     pbar = ProgressBar(persist=False, bar_format=None)
     pbar.attach(trainer, ["loss"])
@@ -151,7 +174,9 @@ if __name__ == "__main__":
     tb_logger.attach(
         evaluator,
         log_handler=OutputHandler(
-            tag="validation", metric_names=["loss", "ppl", "bleu"], another_engine=trainer
+            tag="validation",
+            metric_names=["loss", "ppl", "bleu", 'lr'],
+            another_engine=trainer,
         ),
         event_name=Events.EPOCH_COMPLETED,
     )

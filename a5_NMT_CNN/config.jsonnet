@@ -2,8 +2,8 @@
     device: "cpu",
     dataset_reader: "nmt-dataset",
     convert_to_lowercase: false,
-    train_data_path: ["en_es_data/sample.es", "en_es_data/sample.en"],
-    valid_data_path: ["en_es_data/sample.es", "en_es_data/sample.en"],
+    train_data_path: ["en_es_data/train.es", "en_es_data/train.en"],
+    valid_data_path: ["en_es_data/dev.es", "en_es_data/dev.en"],
     max_vocab_size: 50000,
     vocab_path: "vocab",
     char_emb_size: 50,
@@ -15,5 +15,8 @@
     max_grad_norm: 5.0,
     lr: 0.001,
     valid_batch_size: 15,
-    results_path: "results"
+    results_path: "results",
+    model_path: "my_model",
+    lr_decay_factor: 0.5,
+    patience: 5
 }
