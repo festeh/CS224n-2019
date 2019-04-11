@@ -13,7 +13,7 @@ class Loss(Metric):
 
     def update(self, output):
         _, logprobs = output
-        self.cum_loss -= logprobs.sum()
+        self.cum_loss -= logprobs.sum().item()
         self.n_examples += logprobs.size(0)
 
     def compute(self):
@@ -27,9 +27,9 @@ class Perplexity(Metric):
 
     def update(self, output):
         _, logprobs = output
-        self.cum_loss -= logprobs.sum()
+        self.cum_loss -= logprobs.sum().item()
         # create binary mask, skip one token
-        self.cum_tgt_words += ((logprobs != 0).sum(dim=1) - 1).sum()
+        self.cum_tgt_words += ((logprobs != 0).sum(dim=1) - 1).sum().item()
 
     def compute(self):
         return exp(self.cum_loss / self.cum_tgt_words)
@@ -67,8 +67,10 @@ class BLEU(Metric):
         hyps = [truncate_hyp(hyp) for hyp in hyps]
         refs = self.refs[:batch_size]
         self.refs = self.refs[batch_size:]
-        print("\n".join([" ".join(hyp) for hyp in hyps][:3]),
-              "\n".join([" ".join(ref) for ref in refs][:3]))
+        print("Hyps:", "\n".join([" ".join(hyp) for hyp in hyps][:3]))
+        print("References:", "\n".join([" ".join(ref) for ref in refs][:3]))
+        print()
+
         self.bleu += corpus_bleu([[ref] for ref in refs], hyps)
 
     def compute(self):

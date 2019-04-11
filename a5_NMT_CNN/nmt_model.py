@@ -254,7 +254,7 @@ class NMTModel(nn.Module):
         return enc_masks.to(self.device)
 
     def beam_search(
-        self, src_sent: List[str], beam_size: int = 5, max_decoding_time_step: int = 70
+        self, data, beam_size: int = 5, max_decoding_time_step: int = 70
     ) -> List[Hypothesis]:
         """ Given a single source sentence, perform beam search, yielding translations in the target language.
         @param src_sent (List[str]): a single source sentence (words)
@@ -264,27 +264,31 @@ class NMTModel(nn.Module):
                 value: List[str]: the decoded target sentence, represented as a list of words
                 score: float: the log-likelihood of the target sentence
         """
-        src_sents_var = self.vocab.src.to_input_tensor([src_sent], self.device)
+        enc_hiddens, dec_init_state, enc_masks = self.encode(
+            data["source_sentence"]["token_characters"]
+        )
+        # src_sents_var = self.vocab.src.to_input_tensor([src_sent], self.device)
 
-        src_encodings, dec_init_vec = self.encode(src_sents_var, [len(src_sent)])
-        src_encodings_att_linear = self.att_projection(src_encodings)
+        # src_encodings, dec_init_vec = self.encode(src_sents_var, [len(src_sent)])
+        src_encodings_att_linear = self.att_projection(enc_hiddens)
 
-        h_tm1 = dec_init_vec
+        h_tm1 = dec_init_state
         att_tm1 = torch.zeros(1, self.hidden_size, device=self.device)
 
-        eos_id = self.vocab.tgt["</s>"]
+        eos_idx = self.vocab.get_token_index("EOS", "token_src")
+        assert eos_idx != 1
 
-        hypotheses = [["<s>"]]
+        hypotheses = [["BOS"]]
         hyp_scores = torch.zeros(len(hypotheses), dtype=torch.float, device=self.device)
         completed_hypotheses = []
 
-        t = 0
-        while len(completed_hypotheses) < beam_size and t < max_decoding_time_step:
-            t += 1
+        step = 0
+        while len(completed_hypotheses) < beam_size and step < max_decoding_time_step:
+            step += 1
             hyp_num = len(hypotheses)
 
-            exp_src_encodings = src_encodings.expand(
-                hyp_num, src_encodings.size(1), src_encodings.size(2)
+            exp_src_encodings = enc_hiddens.expand(
+                hyp_num, enc_hiddens.size(1), enc_hiddens.size(2)
             )
 
             exp_src_encodings_att_linear = src_encodings_att_linear.expand(
@@ -294,7 +298,7 @@ class NMTModel(nn.Module):
             )
 
             y_tm1 = torch.tensor(
-                [self.vocab.tgt[hyp[-1]] for hyp in hypotheses],
+                [self.vocab.get_token_from_index(hyp[-1], "token_src") for hyp in hypotheses],
                 dtype=torch.long,
                 device=self.device,
             )
@@ -337,7 +341,7 @@ class NMTModel(nn.Module):
 
                 hyp_word = self.vocab.tgt.id2word[hyp_word_id]
                 new_hyp_sent = hypotheses[prev_hyp_id] + [hyp_word]
-                if hyp_word == "</s>":
+                if hyp_word == "EOS":
                     completed_hypotheses.append(
                         Hypothesis(value=new_hyp_sent[1:-1], score=cand_new_hyp_score)
                     )
