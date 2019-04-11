@@ -1,43 +1,50 @@
-from allennlp.data import DatasetReader, Instance
-from typing import Iterable, List, Iterable, List
+from typing import Iterable, List
 
-from allennlp.data import DatasetReader, Instance, Token
+from allennlp.data import DatasetReader, Instance
 from allennlp.data.fields import TextField
 from allennlp.data.token_indexers import TokenCharactersIndexer, SingleIdTokenIndexer
-from allennlp.data.tokenizers import WordTokenizer, CharacterTokenizer
-from allennlp.data.tokenizers.word_splitter import WordSplitter, SpacyWordSplitter
+from allennlp.data.tokenizers import WordTokenizer
+from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
+
+from a5_NMT_CNN.character_tokenizer import MyCharacterTokenizer
 
 
 @DatasetReader.register("nmt-dataset")
 class NMTDataReader(DatasetReader):
-    def __init__(self, convert_to_lowercase=True):
+    # noinspection PyTypeChecker
+    def __init__(self, max_word_length=None, convert_to_lowercase=True):
         super().__init__(lazy=False)
         self.convert_to_lowercase = convert_to_lowercase
         # TODO: change to es_core_news_sm when you'll finish debugging!!
-        self.source_tokenizer = WordTokenizer(SpacyWordSplitter("en_core_web_sm"))
+        self.source_tokenizer = WordTokenizer(SpacyWordSplitter("es_core_news_sm"))
         self.target_tokenizer = WordTokenizer(
             SpacyWordSplitter("en_core_web_sm"),
             start_tokens=["BOS"],
             end_tokens=["EOS"],
         )
 
-        # TODO: truncate words to 21 characters
-        #
         # TODO: pass lowercase argument
         self.source_token_indexers = {
             "token_characters": TokenCharactersIndexer(
-                "char_src", min_padding_length=5
+                "char_src", min_padding_length=5,
+                character_tokenizer=MyCharacterTokenizer(
+                    max_length=max_word_length,
+                ),
             ),
             "tokens": SingleIdTokenIndexer("token_src"),
         }
         self.target_token_indexers = {
             "token_characters": TokenCharactersIndexer(
-                "char_trg", min_padding_length=5
+                "char_trg", min_padding_length=5,
+                character_tokenizer=MyCharacterTokenizer(
+                    max_length=max_word_length,
+                ),
             ),
             "token_characters_output": TokenCharactersIndexer(
                 "char_trg",
                 min_padding_length=5,
-                character_tokenizer=CharacterTokenizer(
+                character_tokenizer=MyCharacterTokenizer(
+                    max_length=max_word_length,
                     start_tokens=["BOT"], end_tokens=["EOT"]  # lul
                 ),
             ),
