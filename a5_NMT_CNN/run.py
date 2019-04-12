@@ -38,35 +38,37 @@ class DataIteratorWrapper:
 
 def get_data_loader(config):
     data_reader = NMTDataReader(convert_to_lowercase=config.pop("convert_to_lowercase"))
-    train_instances_path = config.pop("train_instances_path")
-    valid_instances_path = config.pop("valid_instances_path")
+    train_instances_path = Path(config.pop("train_instances_path"))
+    valid_instances_path = Path(config.pop("valid_instances_path"))
+    test_instances_path = Path(config.pop("test_instances_path"))
     create_vocab_s_nulya = False
-    if train_instances_path is not None and Path(train_instances_path).exists():
+    if train_instances_path.exists():
         info("Loading tokenized instances")
-        with Path(train_instances_path).open("rb") as f:
-            train_instances = pickle.load(f)
-        with Path(valid_instances_path).open("rb") as f:
-            valid_instances = pickle.load(f)
+        instances = []
+        for path in [train_instances_path, valid_instances_path]:
+            with Path(path).open("rb") as f:
+                instances.append(pickle.load(f))
     else:
         info("Tokenizing instances...")
         create_vocab_s_nulya = True
         train_instances = data_reader.read(config.pop("train_data_path"))
         valid_instances = data_reader.read(config.pop("valid_data_path"))
-        if train_instances_path is not None:
-            train_instances_path = Path(train_instances_path)
-            valid_instances_path = Path(valid_instances_path)
-            info("Saving instances to disk")
-            train_instances_path.parent.mkdir(parents=True)
-            with train_instances_path.open("wb") as f:
-                pickle.dump(train_instances, f, protocol=pickle.HIGHEST_PROTOCOL)
-            with valid_instances_path.open("wb") as f:
-                pickle.dump(valid_instances, f, protocol=pickle.HIGHEST_PROTOCOL)
+        test_instances = data_reader.read(config.pop("test_data_path"))
+        instances = [train_instances, valid_instances]
+        info("Saving instances to disk")
+        train_instances_path.parent.mkdir(parents=True)
+        for inst, path in zip(
+            [train_instances, valid_instances, test_instances],
+            [train_instances_path, valid_instances_path, test_instances_path],
+        ):
+            with path.open("wb") as f:
+                pickle.dump(inst, f, protocol=pickle.HIGHEST_PROTOCOL)
     vocab_path = Path(config.pop("vocab_path"))
     if create_vocab_s_nulya or not vocab_path.exists():
         max_vocab_size = config.pop("max_vocab_size")
         max_characters = config.pop("max_characters")
         vocab = Vocabulary.from_instances(
-            train_instances,
+            instances[0],
             max_vocab_size={
                 "char_src": max_characters,
                 "token_src": max_vocab_size,
@@ -78,6 +80,7 @@ def get_data_loader(config):
     else:
         vocab = Vocabulary.from_files(vocab_path)
 
+    train_instances, valid_instances = instances
     return (
         vocab,
         DataIteratorWrapper(

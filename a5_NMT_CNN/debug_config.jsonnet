@@ -4,6 +4,7 @@
     convert_to_lowercase: false,
     train_data_path: ["en_es_data/sample.es", "en_es_data/sample.en"],
     valid_data_path: ["en_es_data/sample.es", "en_es_data/sample.en"],
+    test_data_path: ["en_es_data/sample.es", "en_es_data/sample.en"],
     max_vocab_size: 50000,
     max_characters: 96,
     max_word_length: 21,

@@ -16,11 +16,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.utils
 from allennlp.common import Params
-from allennlp.data import Vocabulary
+from allennlp.common.util import pad_sequence_to_length
+from allennlp.data import Vocabulary, Token
 from allennlp.nn.util import sort_batch_by_length
-from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
+from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence, pad_sequence
 
 from a4_NMT_RNN.model_embeddings import ModelEmbeddings
+from a4_NMT_RNN.utils import pad_sents
 from a5_NMT_CNN.embedder import NMTEmbedder
 
 Hypothesis = namedtuple("Hypothesis", ["value", "score"])
@@ -254,7 +256,7 @@ class NMTModel(nn.Module):
         return enc_masks.to(self.device)
 
     def beam_search(
-        self, data, beam_size: int = 5, max_decoding_time_step: int = 70
+        self, data, indexer, beam_size: int = 5, max_decoding_time_step: int = 70
     ) -> List[Hypothesis]:
         """ Given a single source sentence, perform beam search, yielding translations in the target language.
         @param src_sent (List[str]): a single source sentence (words)
@@ -267,16 +269,12 @@ class NMTModel(nn.Module):
         enc_hiddens, dec_init_state, enc_masks = self.encode(
             data["source_sentence"]["token_characters"]
         )
-        # src_sents_var = self.vocab.src.to_input_tensor([src_sent], self.device)
-
-        # src_encodings, dec_init_vec = self.encode(src_sents_var, [len(src_sent)])
         src_encodings_att_linear = self.att_projection(enc_hiddens)
 
         h_tm1 = dec_init_state
         att_tm1 = torch.zeros(1, self.hidden_size, device=self.device)
 
-        eos_idx = self.vocab.get_token_index("EOS", "token_src")
-        assert eos_idx != 1
+        eos_idx = self.vocab.get_token_index("EOS", "token_trg")
 
         hypotheses = [["BOS"]]
         hyp_scores = torch.zeros(len(hypotheses), dtype=torch.float, device=self.device)
@@ -297,12 +295,8 @@ class NMTModel(nn.Module):
                 src_encodings_att_linear.size(2),
             )
 
-            y_tm1 = torch.tensor(
-                [self.vocab.get_token_from_index(hyp[-1], "token_src") for hyp in hypotheses],
-                dtype=torch.long,
-                device=self.device,
-            )
-            y_t_embed = self.model_embeddings.target(y_tm1)
+            y_tm1 = self.get_input_idxs_tensor([hyp[-1] for hyp in hypotheses], indexer)
+            y_t_embed = self.target_embedder(y_tm1).squeeze(1)
 
             x = torch.cat([y_t_embed, att_tm1], dim=-1)
 
@@ -325,8 +319,8 @@ class NMTModel(nn.Module):
                 contiuating_hyp_scores, k=live_hyp_num
             )
 
-            prev_hyp_ids = top_cand_hyp_pos / len(self.vocab.tgt)
-            hyp_word_ids = top_cand_hyp_pos % len(self.vocab.tgt)
+            prev_hyp_ids = top_cand_hyp_pos / self.vocab.get_vocab_size("token_trg")
+            hyp_word_ids = top_cand_hyp_pos % self.vocab.get_vocab_size("token_trg")
 
             new_hypotheses = []
             live_hyp_ids = []
@@ -339,7 +333,7 @@ class NMTModel(nn.Module):
                 hyp_word_id = hyp_word_id.item()
                 cand_new_hyp_score = cand_new_hyp_score.item()
 
-                hyp_word = self.vocab.tgt.id2word[hyp_word_id]
+                hyp_word = self.vocab.get_token_from_index(hyp_word_id, "token_trg")
                 new_hyp_sent = hypotheses[prev_hyp_id] + [hyp_word]
                 if hyp_word == "EOS":
                     completed_hypotheses.append(
@@ -372,6 +366,23 @@ class NMTModel(nn.Module):
         completed_hypotheses.sort(key=lambda hyp: hyp.score, reverse=True)
 
         return completed_hypotheses
+
+    def get_input_idxs_tensor(self, words, indexer):
+        char_idxs = indexer.tokens_to_indices(
+            [Token(word) for word in words], self.vocab, "res"
+        )["res"]
+        char_idxs = self.pad_sequences(char_idxs, 5)
+        return torch.tensor(char_idxs, device=self.device).unsqueeze(1)
+
+    def pad_sequences(self, sequences, min_pad_length: int):
+        result = []
+        pad_length = max(min_pad_length, max([len(s) for s in sequences]))
+        for seq in sequences:
+            if len(seq) < pad_length:
+                result.append(seq + [0] * (pad_length - len(seq)))
+            else:
+                result.append(seq)
+        return result
 
     # @property
     # def device(self) -> torch.device:
