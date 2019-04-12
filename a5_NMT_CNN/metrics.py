@@ -55,6 +55,7 @@ class BLEU(Metric):
         self.vocab = vocab
 
     def reset(self):
+        self.hyps = []
         self.refs = self.orig_refs
         self.bleu = 0
 
@@ -65,13 +66,12 @@ class BLEU(Metric):
         hyps = [[self.vocab.get_token_from_index(idx, "token_trg") for idx in idxs]
                 for idxs in hyps_idxs]
         hyps = [truncate_hyp(hyp) for hyp in hyps]
+        self.hyps.extend(hyps)
         refs = self.refs[:batch_size]
         self.refs = self.refs[batch_size:]
-        print("Hyps:", "\n".join([" ".join(hyp) for hyp in hyps][:3]))
-        print("References:", "\n".join([" ".join(ref) for ref in refs][:3]))
+        print("Hyps:\n", "\n".join([" ".join(hyp) for hyp in hyps][:3]))
+        print("References:\n", "\n".join([" ".join(ref) for ref in refs][:3]))
         print()
 
-        self.bleu += corpus_bleu([[ref] for ref in refs], hyps)
-
     def compute(self):
-        return self.bleu * 100
+        return corpus_bleu([[ref] for ref in self.orig_refs], self.hyps) * 100

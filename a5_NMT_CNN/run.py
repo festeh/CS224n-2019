@@ -2,6 +2,7 @@ import pickle
 from functools import partial
 from logging import basicConfig, INFO, info
 from pathlib import Path
+from shutil import rmtree
 
 import torch
 from allennlp.common import Params
@@ -23,9 +24,7 @@ from a5_NMT_CNN.read_data import NMTDataReader
 
 class DataIteratorWrapper:
     def __init__(self, vocab: Vocabulary, instances, batch_size, shuffle):
-        self.data_iter = BasicIterator(
-            batch_size=batch_size, cache_instances=True
-        )
+        self.data_iter = BasicIterator(batch_size=batch_size, cache_instances=True)
         self.data_iter.index_with(vocab)
         self.instances = instances
         self.shuffle = shuffle
@@ -39,25 +38,29 @@ class DataIteratorWrapper:
 
 def get_data_loader(config):
     data_reader = NMTDataReader(convert_to_lowercase=config.pop("convert_to_lowercase"))
-    train_instances_path = Path(config.pop("train_instances_path"))
-    valid_instances_path = Path(config.pop("valid_instances_path"))
+    train_instances_path = config.pop("train_instances_path")
+    valid_instances_path = config.pop("valid_instances_path")
     create_vocab_s_nulya = False
-    if Path(train_instances_path).exists():
+    if train_instances_path is not None and Path(train_instances_path).exists():
         info("Loading tokenized instances")
-        with train_instances_path.open("rb") as f:
+        with Path(train_instances_path).open("rb") as f:
             train_instances = pickle.load(f)
-        with valid_instances_path.open("rb") as f:
+        with Path(valid_instances_path).open("rb") as f:
             valid_instances = pickle.load(f)
     else:
         info("Tokenizing instances...")
         create_vocab_s_nulya = True
         train_instances = data_reader.read(config.pop("train_data_path"))
         valid_instances = data_reader.read(config.pop("valid_data_path"))
-        train_instances_path.parent.mkdir(parents=True)
-        with train_instances_path.open("wb") as f:
-            pickle.dump(train_instances, f, protocol=pickle.HIGHEST_PROTOCOL)
-        with valid_instances_path.open("wb") as f:
-            pickle.dump(valid_instances, f, protocol=pickle.HIGHEST_PROTOCOL)
+        if train_instances_path is not None:
+            train_instances_path = Path(train_instances_path)
+            valid_instances_path = Path(valid_instances_path)
+            info("Saving instances to disk")
+            train_instances_path.parent.mkdir(parents=True)
+            with train_instances_path.open("wb") as f:
+                pickle.dump(train_instances, f, protocol=pickle.HIGHEST_PROTOCOL)
+            with valid_instances_path.open("wb") as f:
+                pickle.dump(valid_instances, f, protocol=pickle.HIGHEST_PROTOCOL)
     vocab_path = Path(config.pop("vocab_path"))
     if create_vocab_s_nulya or not vocab_path.exists():
         max_vocab_size = config.pop("max_vocab_size")
@@ -77,8 +80,18 @@ def get_data_loader(config):
 
     return (
         vocab,
-        DataIteratorWrapper(vocab, train_instances, shuffle=True, batch_size=config.pop("train_batch_size")),
-        DataIteratorWrapper(vocab, valid_instances, shuffle=False, batch_size=config.pop("valid_batch_size")),
+        DataIteratorWrapper(
+            vocab,
+            train_instances,
+            shuffle=True,
+            batch_size=config.pop("train_batch_size"),
+        ),
+        DataIteratorWrapper(
+            vocab,
+            valid_instances,
+            shuffle=False,
+            batch_size=config.pop("valid_batch_size"),
+        ),
     )
 
 
@@ -121,8 +134,8 @@ def create_nmt_evaluator(model: NMTModel, metrics={}, device=None, non_blocking=
 
 
 def reduce_on_plateau(trainer, scheduler):
-    scheduler.step(trainer.state.metrics['loss'])
-    trainer.state.metrics['lr'] = scheduler.optimizer.param_groups[0]['lr']
+    scheduler.step(trainer.state.metrics["loss"])
+    trainer.state.metrics["lr"] = scheduler.optimizer.param_groups[0]["lr"]
 
 
 def run_evaluation(trainer):
@@ -154,16 +167,18 @@ if __name__ == "__main__":
         device=nmt_model.device,
     )
 
-
     def get_best(engine):
-        return engine.state.metrics['bleu']
-
+        return engine.state.metrics["bleu"]
 
     saver = ModelCheckpoint(
         config.pop("model_path"),
         "nmt",
-        n_saved=1, create_dir=True, score_function=get_best, require_empty=False)
-    evaluator.add_event_handler(Events.EPOCH_COMPLETED, saver, {'mymodel': nmt_model})
+        n_saved=1,
+        create_dir=True,
+        score_function=get_best,
+        require_empty=False,
+    )
+    evaluator.add_event_handler(Events.EPOCH_COMPLETED, saver, {"mymodel": nmt_model})
 
     scheduler = ReduceLROnPlateau(
         optimizer, factor=config.pop("lr_decay_factor"), patience=config.pop("patience")
@@ -180,7 +195,11 @@ if __name__ == "__main__":
     trainer.add_event_handler(
         Events.EPOCH_COMPLETED, lambda e: evaluator.run(valid_data_iter)
     )
-    tb_logger = TensorboardLogger(log_dir=config.pop("results_path"))
+
+    log_dir = config.pop("results_path")
+    if Path(log_dir).exists():
+        rmtree(log_dir)
+    tb_logger = TensorboardLogger(log_dir=log_dir)
 
     tb_logger.attach(
         trainer,
@@ -192,7 +211,7 @@ if __name__ == "__main__":
         evaluator,
         log_handler=OutputHandler(
             tag="validation",
-            metric_names=["loss", "ppl", "bleu", 'lr'],
+            metric_names=["loss", "ppl", "bleu", "lr"],
             another_engine=trainer,
         ),
         event_name=Events.EPOCH_COMPLETED,
