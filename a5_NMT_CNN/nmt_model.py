@@ -274,8 +274,6 @@ class NMTModel(nn.Module):
         h_tm1 = dec_init_state
         att_tm1 = torch.zeros(1, self.hidden_size, device=self.device)
 
-        eos_idx = self.vocab.get_token_index("EOS", "token_trg")
-
         hypotheses = [["BOS"]]
         hyp_scores = torch.zeros(len(hypotheses), dtype=torch.float, device=self.device)
         completed_hypotheses = []
@@ -371,7 +369,7 @@ class NMTModel(nn.Module):
         char_idxs = indexer.tokens_to_indices(
             [Token(word) for word in words], self.vocab, "res"
         )["res"]
-        char_idxs = self.pad_sequences(char_idxs, 5)
+        char_idxs = self.pad_sequences(char_idxs, 10)
         return torch.tensor(char_idxs, device=self.device).unsqueeze(1)
 
     def pad_sequences(self, sequences, min_pad_length: int):
