@@ -369,12 +369,12 @@ class NMTModel(nn.Module):
         char_idxs = indexer.tokens_to_indices(
             [Token(word) for word in words], self.vocab, "res"
         )["res"]
-        char_idxs = self.pad_sequences(char_idxs, 10)
+        char_idxs = self.pad_sequences(char_idxs)
         return torch.tensor(char_idxs, device=self.device).unsqueeze(1)
 
-    def pad_sequences(self, sequences, min_pad_length: int):
+    def pad_sequences(self, sequences):
         result = []
-        pad_length = max(min_pad_length, max([len(s) for s in sequences]))
+        pad_length = max([len(s) for s in sequences])
         for seq in sequences:
             if len(seq) < pad_length:
                 result.append(seq + [0] * (pad_length - len(seq)))

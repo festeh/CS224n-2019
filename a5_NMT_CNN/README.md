@@ -25,7 +25,7 @@ NLP *Best Practices*™:
        optimizes model weights and then enhance it with callbacks that for example compute additional metrics, 
        log results to Tensorboard and save model weigths
 
-# How to run
+## How to run
 
 Place assigment data in the `en_es_data` directory and then run
 ```bash
@@ -36,14 +36,14 @@ python run.py
 python model_test.py
 ```
    
-# TODO
+## TODO
 
 * Several small experiments need to be carried out
 * Fallback char-level word model for UNK tokens is not implemented (doubt it will increase BLEU score much as UNK tokens
     are rarely produced) 
 * Written part is in progress
  
-# Results
+## Results
 The current BLEU* score is **24.6**
 
 *As SpaCy tokenizers are used here, BLEU score is computed

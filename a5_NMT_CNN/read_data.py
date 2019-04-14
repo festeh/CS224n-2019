@@ -12,10 +12,8 @@ from a5_NMT_CNN.character_tokenizer import MyCharacterTokenizer
 @DatasetReader.register("nmt-dataset")
 class NMTDataReader(DatasetReader):
     # noinspection PyTypeChecker
-    def __init__(self, max_word_length=None, convert_to_lowercase=True):
+    def __init__(self, max_word_length=None):
         super().__init__(lazy=False)
-        self.convert_to_lowercase = convert_to_lowercase
-        # TODO: change to es_core_news_sm when you'll finish debugging!!
         self.source_tokenizer = WordTokenizer(SpacyWordSplitter("es_core_news_sm"))
         self.target_tokenizer = WordTokenizer(
             SpacyWordSplitter("en_core_web_sm"),
@@ -23,7 +21,6 @@ class NMTDataReader(DatasetReader):
             end_tokens=["EOS"],
         )
 
-        # TODO: pass lowercase argument
         self.source_token_indexers = {
             "token_characters": TokenCharactersIndexer(
                 "char_src", min_padding_length=5,
@@ -35,14 +32,13 @@ class NMTDataReader(DatasetReader):
         }
         self.target_token_indexers = {
             "token_characters": TokenCharactersIndexer(
-                "char_trg", min_padding_length=5,
+                "char_trg",
                 character_tokenizer=MyCharacterTokenizer(
                     max_length=max_word_length,
                 ),
             ),
             "token_characters_output": TokenCharactersIndexer(
                 "char_trg",
-                min_padding_length=5,
                 character_tokenizer=MyCharacterTokenizer(
                     max_length=max_word_length,
                     start_tokens=["BOT"], end_tokens=["EOT"]  # lul

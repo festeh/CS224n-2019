@@ -37,7 +37,6 @@ class DataIteratorWrapper:
 
 
 def get_data_loader(config):
-    data_reader = NMTDataReader(convert_to_lowercase=config.pop("convert_to_lowercase"))
     train_instances_path = Path(config.pop("train_instances_path"))
     valid_instances_path = Path(config.pop("valid_instances_path"))
     test_instances_path = Path(config.pop("test_instances_path"))
@@ -50,6 +49,7 @@ def get_data_loader(config):
                 instances.append(pickle.load(f))
     else:
         info("Tokenizing instances...")
+        data_reader = NMTDataReader()
         create_vocab_s_nulya = True
         train_instances = data_reader.read(config.pop("train_data_path"))
         valid_instances = data_reader.read(config.pop("valid_data_path"))

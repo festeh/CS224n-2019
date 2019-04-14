@@ -20,7 +20,7 @@ with open(config.pop("test_instances_path"), "rb") as f:
 vocab = Vocabulary.from_files(config.pop("vocab_path"))
 model = NMTModel(config, vocab)
 model.eval()
-model.load_state_dict(torch.load("my_model/nmt_mymodel_37.pth"))
+model.load_state_dict(torch.load("my_model/nmt_mymodel_28.pth"))
 model.to(model.device)
 test_iterator = BasicIterator(batch_size=1)
 test_iterator.index_with(vocab)
@@ -38,10 +38,8 @@ for idx, test_data_sample in tqdm(
             apply_to_type(test_data_sample, torch.Tensor, lambda t: t.to(model.device)),
             TokenCharactersIndexer(
                 "char_trg",
-                min_padding_length=5,
                 character_tokenizer=MyCharacterTokenizer(max_length=21),
-            ),
-            beam_size=20,
+            )
         )
     best_hyp = hyps[0].value
     # try:

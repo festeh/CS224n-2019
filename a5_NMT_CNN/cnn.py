@@ -15,6 +15,7 @@ class CNN(Module):
             in_channels=self.char_emb_size,
             out_channels=self.n_filters,
             kernel_size=self.kernel_size,
+            padding=self.kernel_size - 1,
             bias=False
         )
 
